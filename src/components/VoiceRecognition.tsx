@@ -14,7 +14,7 @@ export const VoiceRecognition = ({
   toggleListening 
 }: VoiceRecognitionProps) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<any | null>(null);
 
   useEffect(() => {
     // Check if browser supports SpeechRecognition
@@ -32,7 +32,7 @@ export const VoiceRecognition = ({
     recognition.interimResults = true;
     recognition.lang = 'en-US';
 
-    recognition.onresult = (event) => {
+    recognition.onresult = (event: any) => {
       const transcript = Array.from(event.results)
         .map(result => result[0])
         .map(result => result.transcript)
@@ -43,7 +43,7 @@ export const VoiceRecognition = ({
       }
     };
 
-    recognition.onerror = (event) => {
+    recognition.onerror = (event: any) => {
       console.error('Speech recognition error', event.error);
       setErrorMessage(`Error: ${event.error}`);
       toggleListening();
@@ -114,7 +114,7 @@ export const VoiceRecognition = ({
 // Add TypeScript declaration for the Web Speech API 
 declare global {
   interface Window {
-    SpeechRecognition: typeof SpeechRecognition;
-    webkitSpeechRecognition: typeof SpeechRecognition;
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
   }
 }
