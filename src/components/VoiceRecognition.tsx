@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff } from 'lucide-react';
 
 interface VoiceRecognitionProps {
@@ -13,40 +13,81 @@ export const VoiceRecognition = ({
   isListening, 
   toggleListening 
 }: VoiceRecognitionProps) => {
-  // For demo purposes, we'll simulate speech recognition with predefined phrases
-  const simulateSpeechRecognition = () => {
-    if (!isListening) return;
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+
+  useEffect(() => {
+    // Check if browser supports SpeechRecognition
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      setErrorMessage("Speech recognition is not supported in your browser.");
+      return;
+    }
+
+    // Initialize speech recognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognitionRef.current = new SpeechRecognition();
     
-    const demoSpeechResults = [
-      "Open my documents folder",
-      "Play some music",
-      "What time is it?",
-      "Take a note: remember to finish the project",
-      "Tell me a joke"
-    ];
-    
-    const randomResult = demoSpeechResults[Math.floor(Math.random() * demoSpeechResults.length)];
-    
-    // Simulate processing delay
-    setTimeout(() => {
-      onSpeechResult(randomResult);
-    }, 1500);
-  };
+    const recognition = recognitionRef.current;
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map(result => result[0])
+        .map(result => result.transcript)
+        .join('');
+      
+      if (event.results[0].isFinal) {
+        onSpeechResult(transcript);
+      }
+    };
+
+    recognition.onerror = (event) => {
+      console.error('Speech recognition error', event.error);
+      setErrorMessage(`Error: ${event.error}`);
+      toggleListening();
+    };
+
+    recognition.onend = () => {
+      if (isListening) {
+        toggleListening();
+      }
+    };
+
+    return () => {
+      if (recognition) {
+        recognition.abort();
+      }
+    };
+  }, [onSpeechResult, toggleListening]);
+
+  useEffect(() => {
+    if (isListening && recognitionRef.current) {
+      try {
+        recognitionRef.current.start();
+      } catch (error) {
+        console.error('Failed to start speech recognition', error);
+      }
+    } else if (!isListening && recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (error) {
+        console.error('Failed to stop speech recognition', error);
+      }
+    }
+  }, [isListening]);
 
   return (
     <div className="flex items-center justify-center mt-4">
       <button
-        onClick={() => {
-          toggleListening();
-          if (!isListening) {
-            simulateSpeechRecognition();
-          }
-        }}
+        onClick={toggleListening}
         className={`relative p-4 rounded-full transition-all duration-300 ${
           isListening 
             ? 'bg-buddy-accent/20 text-buddy-accent animate-pulse' 
             : 'bg-gray-800/60 text-gray-400 hover:bg-gray-700/80'
         }`}
+        title={isListening ? "Stop listening" : "Start listening"}
       >
         <div className="relative z-10">
           {isListening ? <Mic className="w-6 h-6" /> : <MicOff className="w-6 h-6" />}
@@ -58,8 +99,22 @@ export const VoiceRecognition = ({
       </button>
       
       <div className="ml-3 text-sm text-gray-400">
-        {isListening ? 'Listening...' : 'Click to speak'}
+        {errorMessage ? (
+          <span className="text-red-400">{errorMessage}</span>
+        ) : isListening ? (
+          'Listening...'
+        ) : (
+          'Click to speak'
+        )}
       </div>
     </div>
   );
 };
+
+// Add TypeScript declaration for the Web Speech API 
+declare global {
+  interface Window {
+    SpeechRecognition: typeof SpeechRecognition;
+    webkitSpeechRecognition: typeof SpeechRecognition;
+  }
+}
