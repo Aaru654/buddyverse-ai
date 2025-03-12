@@ -1,15 +1,16 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { Send } from 'lucide-react';
+import { Send, Loader2 } from 'lucide-react';
 import { processCommand } from '../utils/taskProcessor';
 import { speak, stopSpeaking, initSpeechSynthesis } from '../utils/speechSynthesis';
 import { VoiceRecognition } from './VoiceRecognition';
+import { useToast } from "@/hooks/use-toast";
 
 interface Message {
   id: string;
   text: string;
   sender: 'user' | 'assistant';
   timestamp: Date;
+  isTyping?: boolean;
 }
 
 interface ChatContainerProps {
@@ -30,33 +31,73 @@ export const ChatContainer = ({ onProcessingStateChange }: ChatContainerProps) =
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
+  const typingTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // Initialize speech synthesis on component mount
   useEffect(() => {
     initSpeechSynthesis();
+    
+    if (!('speechSynthesis' in window)) {
+      toast({
+        title: "Speech Synthesis Unavailable",
+        description: "Your browser doesn't support text-to-speech functionality.",
+        variant: "destructive"
+      });
+    }
   }, []);
 
-  // Scroll to bottom of messages
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const smoothScroll = () => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
+    
+    setTimeout(smoothScroll, 100);
   }, [messages]);
 
-  // Update parent component about processing state
-  useEffect(() => {
-    if (onProcessingStateChange) {
-      onProcessingStateChange(isProcessing || isSpeaking);
+  const simulateTyping = async (text: string) => {
+    const assistantMessage: Message = {
+      id: Date.now().toString(),
+      text: '',
+      sender: 'assistant',
+      timestamp: new Date(),
+      isTyping: true
+    };
+    
+    setMessages(prev => [...prev, assistantMessage]);
+    
+    const words = text.split(' ');
+    let currentText = '';
+    
+    for (let i = 0; i < words.length; i++) {
+      currentText += (i === 0 ? '' : ' ') + words[i];
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.id === assistantMessage.id 
+            ? { ...msg, text: currentText } 
+            : msg
+        )
+      );
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
-  }, [isProcessing, isSpeaking, onProcessingStateChange]);
+    
+    setMessages(prev => 
+      prev.map(msg => 
+        msg.id === assistantMessage.id 
+          ? { ...msg, isTyping: false } 
+          : msg
+      )
+    );
+    
+    return assistantMessage.id;
+  };
 
   const handleSendMessage = async (text: string = input) => {
     if (!text.trim()) return;
     
-    // Clear input and set processing state
     setInput('');
     setIsProcessing(true);
     if (onProcessingStateChange) onProcessingStateChange(true);
     
-    // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
       text: text,
@@ -66,30 +107,30 @@ export const ChatContainer = ({ onProcessingStateChange }: ChatContainerProps) =
     
     setMessages(prev => [...prev, userMessage]);
     
-    // Process the command
-    const response = processCommand(text);
-    
-    // Simulate processing delay for a more natural feel
-    setTimeout(() => {
-      // Add assistant response
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: response.message,
-        sender: 'assistant',
-        timestamp: new Date()
-      };
+    try {
+      const response = processCommand(text);
+      const messageId = await simulateTyping(response.message);
       
-      setMessages(prev => [...prev, assistantMessage]);
       setIsProcessing(false);
-      
-      // Speak the response
       setIsSpeaking(true);
+      
       speak(
         response.message,
         undefined,
-        () => setIsSpeaking(false)
+        () => {
+          setIsSpeaking(false);
+          if (onProcessingStateChange) onProcessingStateChange(false);
+        }
       );
-    }, 1000);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to process your request. Please try again.",
+        variant: "destructive"
+      });
+      setIsProcessing(false);
+      if (onProcessingStateChange) onProcessingStateChange(false);
+    }
   };
 
   const toggleListening = () => {
@@ -99,11 +140,13 @@ export const ChatContainer = ({ onProcessingStateChange }: ChatContainerProps) =
     }
     
     setIsListening(!isListening);
-  };
-
-  const handleSpeechResult = (text: string) => {
-    setIsListening(false);
-    handleSendMessage(text);
+    
+    if (!isListening) {
+      toast({
+        title: "Voice Recognition Active",
+        description: "I'm listening... Speak clearly into your microphone.",
+      });
+    }
   };
 
   return (
@@ -127,21 +170,28 @@ export const ChatContainer = ({ onProcessingStateChange }: ChatContainerProps) =
                   : 'bg-gray-800 text-gray-200'
               }`}
             >
-              <p>{message.text}</p>
+              <p>{message.text}
+                {message.isTyping && (
+                  <span className="inline-flex ml-2">
+                    <span className="animate-pulse">.</span>
+                    <span className="animate-pulse" style={{ animationDelay: '0.2s' }}>.</span>
+                    <span className="animate-pulse" style={{ animationDelay: '0.4s' }}>.</span>
+                  </span>
+                )}
+              </p>
               <span className="text-xs text-gray-400 mt-1 block">
-                {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {message.timestamp.toLocaleTimeString([], { 
+                  hour: '2-digit', 
+                  minute: '2-digit' 
+                })}
               </span>
             </div>
           </div>
         ))}
-        {isProcessing && (
+        {isProcessing && !messages.some(m => m.isTyping) && (
           <div className="flex justify-start">
-            <div className="bg-gray-800 text-white p-3 rounded-lg max-w-[85%]">
-              <div className="flex space-x-2">
-                <div className="w-2 h-2 rounded-full bg-buddy-neon animate-pulse"></div>
-                <div className="w-2 h-2 rounded-full bg-buddy-neon animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                <div className="w-2 h-2 rounded-full bg-buddy-neon animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-              </div>
+            <div className="bg-gray-800 text-white p-3 rounded-lg">
+              <Loader2 className="w-5 h-5 animate-spin" />
             </div>
           </div>
         )}
@@ -163,14 +213,17 @@ export const ChatContainer = ({ onProcessingStateChange }: ChatContainerProps) =
             placeholder="Type a message..."
             className="flex-1 bg-gray-800 border border-gray-700 rounded-l-md p-2 text-white focus:outline-none focus:ring-1 focus:ring-buddy-neon"
             onKeyDown={(e) => {
-              if (e.key === 'Enter') {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
                 handleSendMessage();
               }
             }}
           />
           <button
             onClick={() => handleSendMessage()}
-            className="bg-buddy-neon hover:bg-buddy-neon/80 text-black p-2 rounded-r-md transition-colors"
+            className={`bg-buddy-neon hover:bg-buddy-neon/80 text-black p-2 rounded-r-md transition-colors ${
+              isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
             disabled={isProcessing}
           >
             <Send className="w-5 h-5" />

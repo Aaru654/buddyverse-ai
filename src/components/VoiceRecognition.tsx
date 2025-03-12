@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff } from 'lucide-react';
+import { Mic, MicOff, Waves } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface VoiceRecognitionProps {
   onSpeechResult: (text: string) => void;
@@ -14,16 +15,17 @@ export const VoiceRecognition = ({
   toggleListening 
 }: VoiceRecognitionProps) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [audioLevel, setAudioLevel] = useState(0);
   const recognitionRef = useRef<any | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animationFrameRef = useRef<number>();
 
   useEffect(() => {
-    // Check if browser supports SpeechRecognition
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       setErrorMessage("Speech recognition is not supported in your browser.");
       return;
     }
 
-    // Initialize speech recognition
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognitionRef.current = new SpeechRecognition();
     
@@ -59,42 +61,77 @@ export const VoiceRecognition = ({
       if (recognition) {
         recognition.abort();
       }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
     };
   }, [onSpeechResult, toggleListening]);
 
+  // Set up audio visualization
   useEffect(() => {
-    if (isListening && recognitionRef.current) {
-      try {
-        recognitionRef.current.start();
-      } catch (error) {
-        console.error('Failed to start speech recognition', error);
-      }
-    } else if (!isListening && recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (error) {
-        console.error('Failed to stop speech recognition', error);
-      }
+    if (isListening) {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          const audioContext = new AudioContext();
+          const source = audioContext.createMediaStreamSource(stream);
+          const analyser = audioContext.createAnalyser();
+          analyser.fftSize = 256;
+          source.connect(analyser);
+          analyserRef.current = analyser;
+
+          const updateAudioLevel = () => {
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            analyser.getByteFrequencyData(dataArray);
+            const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+            setAudioLevel(average / 128); // Normalize to 0-1
+            animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
+          };
+
+          updateAudioLevel();
+        })
+        .catch(err => console.error('Error accessing microphone:', err));
     }
   }, [isListening]);
 
   return (
-    <div className="flex items-center justify-center mt-4">
+    <div className="flex items-center justify-center mt-4 relative">
       <button
         onClick={toggleListening}
-        className={`relative p-4 rounded-full transition-all duration-300 ${
+        className={cn(
+          "relative p-6 rounded-full transition-all duration-300",
           isListening 
-            ? 'bg-buddy-accent/20 text-buddy-accent animate-pulse' 
-            : 'bg-gray-800/60 text-gray-400 hover:bg-gray-700/80'
-        }`}
+            ? "bg-buddy-accent/20 text-buddy-accent" 
+            : "bg-gray-800/60 text-gray-400 hover:bg-gray-700/80"
+        )}
         title={isListening ? "Stop listening" : "Start listening"}
       >
         <div className="relative z-10">
-          {isListening ? <Mic className="w-6 h-6" /> : <MicOff className="w-6 h-6" />}
+          {isListening ? (
+            <div className="relative">
+              <Waves 
+                className={cn(
+                  "w-6 h-6 absolute top-0 left-0 transition-opacity",
+                  audioLevel > 0.3 ? "opacity-100" : "opacity-30"
+                )} 
+              />
+              <Mic className="w-6 h-6" />
+            </div>
+          ) : (
+            <MicOff className="w-6 h-6" />
+          )}
         </div>
         
         {isListening && (
-          <div className="absolute inset-0 rounded-full border border-buddy-accent/50 animate-ping"></div>
+          <>
+            <div className="absolute inset-0 rounded-full border border-buddy-accent/50 animate-ping"></div>
+            <div 
+              className="absolute inset-0 rounded-full bg-buddy-accent/10"
+              style={{
+                transform: `scale(${1 + audioLevel * 0.5})`,
+                transition: 'transform 0.1s ease-out'
+              }}
+            ></div>
+          </>
         )}
       </button>
       
@@ -102,7 +139,7 @@ export const VoiceRecognition = ({
         {errorMessage ? (
           <span className="text-red-400">{errorMessage}</span>
         ) : isListening ? (
-          'Listening...'
+          <span className="animate-pulse">Listening...</span>
         ) : (
           'Click to speak'
         )}
@@ -111,7 +148,6 @@ export const VoiceRecognition = ({
   );
 };
 
-// Add TypeScript declaration for the Web Speech API 
 declare global {
   interface Window {
     SpeechRecognition: any;
