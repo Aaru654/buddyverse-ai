@@ -1,8 +1,16 @@
 
+import { useState } from "react";
 import { Avatar } from "@/components/Avatar";
 import { ChatContainer } from "@/components/ChatContainer";
 
 const Index = () => {
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // This function will be used later for synchronized avatar/chat state
+  const handleProcessingState = (state: boolean) => {
+    setIsProcessing(state);
+  };
+
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 space-y-8">
       <div className="text-center space-y-4 animate-in fade-in duration-700">
@@ -11,7 +19,7 @@ const Index = () => {
       </div>
       
       <div className="relative z-10 animate-in fade-in slide-in-from-bottom duration-700 delay-200">
-        <Avatar isActive={true} />
+        <Avatar isActive={true} isProcessing={isProcessing} />
       </div>
       
       <div className="w-full animate-in fade-in slide-in-from-bottom duration-700 delay-300">
