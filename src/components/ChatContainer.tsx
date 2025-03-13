@@ -133,6 +133,13 @@ export const ChatContainer = ({ onProcessingStateChange }: ChatContainerProps) =
     }
   };
 
+  const handleSpeechResult = (text: string) => {
+    if (text.trim()) {
+      handleSendMessage(text);
+      setIsListening(false);
+    }
+  };
+
   const toggleListening = () => {
     if (isSpeaking) {
       stopSpeaking();
