@@ -1,9 +1,13 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, Calendar, BookText } from 'lucide-react';
 import { processCommand } from '../utils/taskProcessor';
 import { speak, stopSpeaking, initSpeechSynthesis } from '../utils/speechSynthesis';
 import { VoiceRecognition } from './VoiceRecognition';
 import { useToast } from "@/hooks/use-toast";
+import { learningSystem } from '@/utils/learningSystem';
+import { calendarManager } from '@/utils/calendarManager';
+import { noteManager } from '@/utils/noteManager';
 
 interface Message {
   id: string;
@@ -18,18 +22,13 @@ interface ChatContainerProps {
 }
 
 export const ChatContainer = ({ onProcessingStateChange }: ChatContainerProps) => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      text: 'Hello! I\'m BUDDY, your offline AI assistant. How can I help you today?',
-      sender: 'assistant',
-      timestamp: new Date()
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
@@ -44,6 +43,15 @@ export const ChatContainer = ({ onProcessingStateChange }: ChatContainerProps) =
         variant: "destructive"
       });
     }
+    
+    // Initialize with a personalized welcome message
+    const initialGreeting = learningSystem.getPersonalizedGreeting();
+    setMessages([{
+      id: '1',
+      text: initialGreeting,
+      sender: 'assistant',
+      timestamp: new Date()
+    }]);
   }, []);
 
   useEffect(() => {
@@ -155,11 +163,41 @@ export const ChatContainer = ({ onProcessingStateChange }: ChatContainerProps) =
       });
     }
   };
+  
+  const toggleCalendarView = () => {
+    setShowCalendar(!showCalendar);
+    if (showNotes) setShowNotes(false);
+  };
+  
+  const toggleNotesView = () => {
+    setShowNotes(!showNotes);
+    if (showCalendar) setShowCalendar(false);
+  };
 
   return (
     <div className="w-full max-w-2xl mx-auto bg-black/30 backdrop-blur-sm rounded-xl border border-gray-800 overflow-hidden">
-      <div className="p-2 bg-gray-900/70 border-b border-gray-800">
-        <h2 className="text-sm font-medium text-gray-300 text-center">Conversation</h2>
+      <div className="p-2 bg-gray-900/70 border-b border-gray-800 flex justify-between items-center">
+        <h2 className="text-sm font-medium text-gray-300">Conversation</h2>
+        <div className="flex space-x-2">
+          <button 
+            onClick={toggleCalendarView}
+            className={`p-1.5 rounded-md transition-colors ${
+              showCalendar ? 'bg-buddy-neon/20 text-buddy-neon' : 'text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}
+            title="Calendar"
+          >
+            <Calendar className="w-4 h-4" />
+          </button>
+          <button 
+            onClick={toggleNotesView}
+            className={`p-1.5 rounded-md transition-colors ${
+              showNotes ? 'bg-buddy-neon/20 text-buddy-neon' : 'text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}
+            title="Notes"
+          >
+            <BookText className="w-4 h-4" />
+          </button>
+        </div>
       </div>
       
       <div className="h-[40vh] overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-gray-700">
@@ -205,6 +243,20 @@ export const ChatContainer = ({ onProcessingStateChange }: ChatContainerProps) =
         <div ref={messagesEndRef} />
       </div>
       
+      {showCalendar && (
+        <div className="border-t border-gray-800 bg-gray-900/80 p-4 max-h-[250px] overflow-y-auto">
+          <h3 className="text-sm font-medium text-buddy-neon mb-2">Upcoming Events</h3>
+          <CalendarPreview />
+        </div>
+      )}
+      
+      {showNotes && (
+        <div className="border-t border-gray-800 bg-gray-900/80 p-4 max-h-[250px] overflow-y-auto">
+          <h3 className="text-sm font-medium text-buddy-neon mb-2">Recent Notes</h3>
+          <NotesPreview />
+        </div>
+      )}
+      
       <div className="p-4 border-t border-gray-800 bg-gray-900/50">
         <VoiceRecognition 
           onSpeechResult={handleSpeechResult} 
@@ -237,6 +289,67 @@ export const ChatContainer = ({ onProcessingStateChange }: ChatContainerProps) =
           </button>
         </div>
       </div>
+    </div>
+  );
+};
+
+// Calendar Preview Component
+const CalendarPreview = () => {
+  const events = calendarManager.getUpcomingEvents();
+  
+  if (events.length === 0) {
+    return <div className="text-gray-400 text-sm italic">No upcoming events</div>;
+  }
+  
+  return (
+    <div className="space-y-2">
+      {events.map(event => (
+        <div key={event.id} className="bg-gray-800/60 p-2 rounded-md border border-gray-700 flex justify-between">
+          <div>
+            <div className="text-sm font-medium text-white">{event.title}</div>
+            <div className="text-xs text-gray-400">
+              {event.date.toLocaleDateString()} {event.time && `• ${event.time}`}
+            </div>
+          </div>
+          <div className="flex items-center">
+            <input 
+              type="checkbox" 
+              checked={event.isCompleted} 
+              onChange={() => calendarManager.toggleEventCompletion(event.id)}
+              className="rounded-sm bg-gray-700 border-gray-600 text-buddy-neon focus:ring-buddy-neon/50"
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// Notes Preview Component
+const NotesPreview = () => {
+  const notes = noteManager.getNotes()
+    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+    .slice(0, 5);
+  
+  if (notes.length === 0) {
+    return <div className="text-gray-400 text-sm italic">No notes yet</div>;
+  }
+  
+  return (
+    <div className="space-y-2">
+      {notes.map(note => (
+        <div key={note.id} className="bg-gray-800/60 p-2 rounded-md border border-gray-700">
+          <div className="text-sm font-medium text-white">{note.title}</div>
+          <div className="text-xs text-gray-300 line-clamp-2">{note.content}</div>
+          <div className="flex gap-1 mt-1">
+            {note.tags.map(tag => (
+              <span key={tag} className="bg-buddy-purple/50 text-[10px] px-1.5 py-0.5 rounded-full">
+                #{tag}
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 };

@@ -1,7 +1,9 @@
-
 // Enhanced task processor with more sophisticated command handling
+import { calendarManager, CalendarEvent } from './calendarManager';
+import { noteManager } from './noteManager';
+import { learningSystem } from './learningSystem';
 
-type TaskType = 'app' | 'file' | 'search' | 'note' | 'music' | 'timer' | 'chat' | 'weather' | 'calculation';
+type TaskType = 'app' | 'file' | 'search' | 'note' | 'music' | 'timer' | 'chat' | 'weather' | 'calculation' | 'calendar' | 'learning';
 
 interface TaskResponse {
   message: string;
@@ -13,6 +15,12 @@ interface TaskResponse {
 export const processCommand = (text: string): TaskResponse => {
   const lowerText = text.toLowerCase().trim();
   
+  // Log the interaction for learning
+  const logInteractionAfterResponse = (response: TaskResponse) => {
+    learningSystem.logInteraction(text, response.message);
+    return response;
+  };
+  
   // Enhanced intent matching patterns
   const patterns = {
     app: /open|launch|start|run\s+(\w+)/i,
@@ -22,8 +30,22 @@ export const processCommand = (text: string): TaskResponse => {
     music: /play|pause|stop|music|song|volume|turn up|turn down/i,
     timer: /timer|remind|alert|alarm|set a timer|set a reminder/i,
     weather: /weather|temperature|forecast|rain|sunny/i,
-    calculation: /calculate|compute|what is|how much is|math|sum of|add|subtract|multiply|divide/i
+    calculation: /calculate|compute|what is|how much is|math|sum of|add|subtract|multiply|divide/i,
+    calendar: /calendar|schedule|event|appointment|meeting|add event|create event|plan/i,
+    learning: /remember|learn|forget|my name|i am|i like|i love|call me/i
   };
+  
+  // First check if it's a calendar event request
+  const eventDetails = calendarManager.extractEventFromText(text);
+  if (eventDetails && eventDetails.title && eventDetails.date) {
+    return logInteractionAfterResponse(handleCalendarCommand(text, eventDetails));
+  }
+  
+  // Check if it's a note-taking request
+  const noteDetails = noteManager.extractNoteFromText(text);
+  if (noteDetails && noteDetails.content) {
+    return logInteractionAfterResponse(handleNoteCommand(text, noteDetails));
+  }
   
   // Determine the task type based on the command
   let taskType: TaskType = 'chat';
@@ -37,36 +59,271 @@ export const processCommand = (text: string): TaskResponse => {
   // Process calculations right away if detected
   if (taskType === 'calculation') {
     const result = handleCalculation(lowerText);
-    if (result.success) return result;
+    if (result.success) return logInteractionAfterResponse(result);
   }
   
   // Process based on task type
+  let response: TaskResponse;
   switch (taskType) {
     case 'app':
-      return handleAppCommand(lowerText);
+      response = handleAppCommand(lowerText);
+      break;
     case 'file':
-      return handleFileCommand(lowerText);
+      response = handleFileCommand(lowerText);
+      break;
     case 'note':
-      return handleNoteCommand(lowerText);
+      response = handleNoteCommand(lowerText);
+      break;
     case 'music':
-      return handleMusicCommand(lowerText);
+      response = handleMusicCommand(lowerText);
+      break;
     case 'search':
-      return handleSearchCommand(lowerText);
+      response = handleSearchCommand(lowerText);
+      break;
     case 'timer':
-      return handleTimerCommand(lowerText);
+      response = handleTimerCommand(lowerText);
+      break;
     case 'weather':
-      return handleWeatherCommand(lowerText);
+      response = handleWeatherCommand(lowerText);
+      break;
+    case 'calendar':
+      response = handleCalendarCommand(lowerText);
+      break;
+    case 'learning':
+      response = handleLearningCommand(lowerText);
+      break;
     case 'calculation':
       // If we get here, the standard calculation handling failed
-      return {
+      response = {
         message: "I couldn't perform that calculation. Could you rephrase it?",
         success: false
       };
+      break;
     case 'chat':
     default:
-      return handleChatCommand(lowerText);
+      response = handleChatCommand(lowerText);
+      break;
   }
+  
+  return logInteractionAfterResponse(response);
 };
+
+// New calendar command handler
+function handleCalendarCommand(text: string, eventDetails?: Partial<CalendarEvent>): TaskResponse {
+  // Add event if details were successfully extracted
+  if (eventDetails && eventDetails.title && eventDetails.date) {
+    const event = calendarManager.addEvent(eventDetails as Omit<CalendarEvent, 'id'>);
+    return {
+      message: `I've added "${event.title}" to your calendar for ${event.date.toLocaleDateString()} ${event.time ? `at ${event.time}` : ''}.`,
+      success: true,
+      data: { event }
+    };
+  }
+  
+  // Handle other calendar commands
+  if (text.match(/what('s| is) (on )?my calendar today/i)) {
+    const events = calendarManager.getEventsByDate(new Date());
+    if (events.length === 0) {
+      return {
+        message: "You don't have any events scheduled for today.",
+        success: true
+      };
+    }
+    
+    const eventList = events.map(e => `- ${e.title} ${e.time ? `at ${e.time}` : ''}`).join('\n');
+    return {
+      message: `Here's your schedule for today:\n${eventList}`,
+      success: true,
+      data: { events }
+    };
+  }
+  
+  if (text.match(/upcoming events|what('s| is) coming up/i)) {
+    const events = calendarManager.getUpcomingEvents();
+    if (events.length === 0) {
+      return {
+        message: "You don't have any upcoming events in the next 7 days.",
+        success: true
+      };
+    }
+    
+    const eventList = events.map(e => 
+      `- ${e.title} on ${e.date.toLocaleDateString()} ${e.time ? `at ${e.time}` : ''}`
+    ).join('\n');
+    
+    return {
+      message: `Here are your upcoming events for the next 7 days:\n${eventList}`,
+      success: true,
+      data: { events }
+    };
+  }
+  
+  return {
+    message: "I can help manage your calendar. Try saying 'Add an event called \"Team Meeting\" on Friday at 2pm' or 'What's on my calendar today?'",
+    success: true
+  };
+}
+
+// Enhanced note command handler with the note extractor
+function handleNoteCommand(text: string, noteDetails?: Partial<Note>): TaskResponse {
+  if (noteDetails && noteDetails.content) {
+    const note = noteManager.addNote(noteDetails as any);
+    return {
+      message: `I've saved your note: "${note.content.substring(0, 100)}${note.content.length > 100 ? '...' : ''}"`,
+      success: true,
+      data: { note }
+    };
+  }
+  
+  if (text.match(/show( me)? my notes/i)) {
+    const notes = noteManager.getNotes();
+    if (notes.length === 0) {
+      return {
+        message: "You don't have any saved notes yet.",
+        success: true
+      };
+    }
+    
+    // Show recent notes
+    const recentNotes = notes
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+      .slice(0, 3);
+    
+    const noteList = recentNotes.map(n => `- ${n.title} (${n.updatedAt.toLocaleDateString()})`).join('\n');
+    
+    return {
+      message: `Here are your most recent notes:\n${noteList}\n\nYou have ${notes.length} notes in total.`,
+      success: true,
+      data: { recentNotes }
+    };
+  }
+  
+  if (text.match(/search notes for (.*)/i)) {
+    const match = text.match(/search notes for (.*)/i);
+    const query = match ? match[1] : '';
+    
+    if (query) {
+      const results = noteManager.searchNotes(query);
+      if (results.length === 0) {
+        return {
+          message: `I couldn't find any notes matching "${query}".`,
+          success: true
+        };
+      }
+      
+      const noteList = results.map(n => `- ${n.title} (${n.updatedAt.toLocaleDateString()})`).join('\n');
+      return {
+        message: `Found ${results.length} note${results.length > 1 ? 's' : ''} matching "${query}":\n${noteList}`,
+        success: true,
+        data: { results }
+      };
+    }
+  }
+  
+  return {
+    message: `I can help you take and manage notes. Try saying "Take a note: Remember to buy groceries" or "Show me my notes".`,
+    success: true
+  };
+}
+
+// New learning command handler
+function handleLearningCommand(text: string): TaskResponse {
+  // Extract name
+  const nameMatch = text.match(/my name is (\w+)/i) || text.match(/call me (\w+)/i);
+  if (nameMatch && nameMatch[1]) {
+    const name = nameMatch[1];
+    learningSystem.savePreference({
+      type: 'name',
+      value: name,
+      confidence: 0.9,
+      context: `User explicitly mentioned: "${text}"`
+    });
+    
+    return {
+      message: `Thanks, I'll remember that your name is ${name}!`,
+      success: true
+    };
+  }
+  
+  // Extract interests
+  const likeMatch = text.match(/i (?:like|love|enjoy) ([\w\s]+)/i);
+  if (likeMatch && likeMatch[1]) {
+    const interest = likeMatch[1].trim();
+    learningSystem.savePreference({
+      type: 'interest',
+      value: interest,
+      confidence: 0.8,
+      context: `User explicitly mentioned: "${text}"`
+    });
+    
+    return {
+      message: `I'll remember that you enjoy ${interest}!`,
+      success: true
+    };
+  }
+  
+  // Extract dislikes
+  const dislikeMatch = text.match(/i (?:don't like|hate|dislike) ([\w\s]+)/i);
+  if (dislikeMatch && dislikeMatch[1]) {
+    const dislike = dislikeMatch[1].trim();
+    learningSystem.savePreference({
+      type: 'dislike',
+      value: dislike,
+      confidence: 0.8,
+      context: `User explicitly mentioned: "${text}"`
+    });
+    
+    return {
+      message: `I'll remember that you don't like ${dislike}.`,
+      success: true
+    };
+  }
+  
+  // Forget things about me
+  if (text.match(/forget (?:about|that) ([\w\s]+)/i)) {
+    const match = text.match(/forget (?:about|that) ([\w\s]+)/i);
+    const item = match ? match[1].trim() : '';
+    
+    if (item.match(/my name/i)) {
+      const currentName = learningSystem.getUserName();
+      if (currentName) {
+        learningSystem.removePreference('name', currentName);
+        return {
+          message: `I've forgotten your name.`,
+          success: true
+        };
+      }
+    }
+    
+    // Try to find if it's an interest or dislike
+    const allPreferences = [
+      ...learningSystem.getPreferencesByType('interest'),
+      ...learningSystem.getPreferencesByType('dislike')
+    ];
+    
+    const preference = allPreferences.find(p => 
+      p.value.toLowerCase().includes(item.toLowerCase())
+    );
+    
+    if (preference) {
+      learningSystem.removePreference(preference.type, preference.value);
+      return {
+        message: `I've forgotten that you ${preference.type === 'interest' ? 'like' : 'dislike'} ${preference.value}.`,
+        success: true
+      };
+    }
+    
+    return {
+      message: `I couldn't find anything specific about "${item}" to forget.`,
+      success: false
+    };
+  }
+  
+  return {
+    message: `I'm learning about your preferences to provide a more personalized experience. You can tell me things like "My name is Alex" or "I like hiking".`,
+    success: true
+  };
+}
 
 // Enhanced app handler with more detailed responses
 function handleAppCommand(text: string): TaskResponse {
@@ -133,27 +390,6 @@ function handleFileCommand(text: string): TaskResponse {
   return {
     message: `I can help with file operations like creating, opening, renaming, or deleting files in a full implementation. Currently, I'm running in a web browser with limited file system access.`,
     success: true
-  };
-}
-
-function handleNoteCommand(text: string): TaskResponse {
-  // Extract the note content after keywords
-  const noteRegex = /(note|write down|remember|save|take a note|remind me about)[:\s]+(.*)/i;
-  const noteMatch = text.match(noteRegex);
-  const noteContent = noteMatch ? noteMatch[2].trim() : '';
-  
-  if (noteContent) {
-    const timestamp = new Date().toLocaleString();
-    return {
-      message: `I've saved your note: "${noteContent}" (created at ${timestamp}). In a full implementation, this would be saved to your local storage or a file.`,
-      success: true,
-      data: { note: noteContent, timestamp }
-    };
-  }
-  
-  return {
-    message: `I can save notes for you. Just say something like "Take a note: remember to call John tomorrow" or "Remember that my meeting is at 3 PM."`,
-    success: false
   };
 }
 
@@ -295,10 +531,13 @@ function handleCalculation(text: string): TaskResponse {
 }
 
 function handleChatCommand(text: string): TaskResponse {
+  const userName = learningSystem.getUserName();
+  const personalizedGreeting = userName ? `Hello, ${userName}! ` : 'Hello! ';
+  
   // Enhanced chat responses
   if (text.includes('hello') || text.includes('hi') || text.match(/^hey/i)) {
     return {
-      message: 'Hello! How can I help you today?',
+      message: learningSystem.getPersonalizedGreeting(),
       success: true
     };
   } else if (text.includes('how are you')) {
@@ -340,7 +579,7 @@ function handleChatCommand(text: string): TaskResponse {
     };
   } else if (text.includes('thank')) {
     return {
-      message: "You're welcome! Is there anything else I can help you with?",
+      message: `You're welcome${userName ? ', ' + userName : ''}! Is there anything else I can help you with?`,
       success: true
     };
   } else if (text.includes('who are you') || text.includes('what are you')) {
@@ -350,13 +589,13 @@ function handleChatCommand(text: string): TaskResponse {
     };
   } else if (text.includes('can you do')) {
     return {
-      message: "I can help with tasks like taking notes, finding files, opening apps, setting timers, playing music, answering questions, and just chatting with you. Since I'm an offline assistant, I process everything locally on your device for privacy.",
+      message: "I can help with tasks like taking notes, managing your calendar, finding files, opening apps, setting timers, playing music, answering questions, and just chatting with you. Since I'm an offline assistant, I process everything locally on your device for privacy.",
       success: true
     };
   }
   
   return {
-    message: "I'm here to help with various tasks. You can ask me to open apps, manage files, take notes, play music, search for information, perform calculations, or just chat!",
+    message: `I'm here to help with various tasks. You can ask me to manage your calendar, take notes, open apps, manage files, play music, search for information, perform calculations, or just chat!`,
     success: true
   };
 }
