@@ -1,6 +1,6 @@
 // Enhanced task processor with more sophisticated command handling
 import { calendarManager, CalendarEvent } from './calendarManager';
-import { noteManager } from './noteManager';
+import { noteManager, Note } from './noteManager';
 import { learningSystem } from './learningSystem';
 
 type TaskType = 'app' | 'file' | 'search' | 'note' | 'music' | 'timer' | 'chat' | 'weather' | 'calculation' | 'calendar' | 'learning';
