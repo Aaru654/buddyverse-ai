@@ -2,13 +2,12 @@
 import React from 'react';
 import { CalendarPreview } from './CalendarPreview';
 import { NotesPreview } from './NotesPreview';
+import { useChatContext } from '@/contexts/ChatContext';
 
-interface SidePanelProps {
-  showCalendar: boolean;
-  showNotes: boolean;
-}
-
-export const SidePanel = ({ showCalendar, showNotes }: SidePanelProps) => {
+export const SidePanel = () => {
+  const { state } = useChatContext();
+  const { showCalendar, showNotes } = state;
+  
   if (!showCalendar && !showNotes) return null;
   
   return (

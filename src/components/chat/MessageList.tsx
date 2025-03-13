@@ -2,6 +2,7 @@
 import React, { useRef, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { MessageItem } from './MessageItem';
+import { useChatContext } from '@/contexts/ChatContext';
 
 export interface Message {
   id: string;
@@ -11,12 +12,9 @@ export interface Message {
   isTyping?: boolean;
 }
 
-interface MessageListProps {
-  messages: Message[];
-  isProcessing: boolean;
-}
-
-export const MessageList = ({ messages, isProcessing }: MessageListProps) => {
+export const MessageList = () => {
+  const { state } = useChatContext();
+  const { messages, isProcessing } = state;
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

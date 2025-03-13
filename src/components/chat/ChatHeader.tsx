@@ -1,20 +1,12 @@
 
 import React from 'react';
 import { Calendar, BookText } from 'lucide-react';
+import { useChatContext } from '@/contexts/ChatContext';
 
-interface ChatHeaderProps {
-  showCalendar: boolean;
-  showNotes: boolean;
-  toggleCalendarView: () => void;
-  toggleNotesView: () => void;
-}
-
-export const ChatHeader = ({ 
-  showCalendar, 
-  showNotes, 
-  toggleCalendarView, 
-  toggleNotesView 
-}: ChatHeaderProps) => {
+export const ChatHeader = () => {
+  const { state, toggleCalendarView, toggleNotesView } = useChatContext();
+  const { showCalendar, showNotes } = state;
+  
   return (
     <div className="p-2 bg-gray-900/70 border-b border-gray-800 flex justify-between items-center">
       <h2 className="text-sm font-medium text-gray-300">Conversation</h2>

@@ -2,35 +2,23 @@
 import React, { useState } from 'react';
 import { Send } from 'lucide-react';
 import { VoiceRecognition } from '../VoiceRecognition';
+import { useChatContext } from '@/contexts/ChatContext';
 
-interface ChatInputProps {
-  onSendMessage: (text: string) => void;
-  isProcessing: boolean;
-  isSpeaking: boolean;
-  isListening: boolean;
-  toggleListening: () => void;
-  onSpeechResult: (text: string) => void;
-}
-
-export const ChatInput = ({ 
-  onSendMessage, 
-  isProcessing, 
-  isListening,
-  toggleListening,
-  onSpeechResult
-}: ChatInputProps) => {
+export const ChatInput = () => {
   const [input, setInput] = useState('');
+  const { state, sendMessage, toggleListening, handleSpeechResult } = useChatContext();
+  const { isProcessing, isListening } = state;
 
   const handleSendMessage = () => {
     if (!input.trim()) return;
-    onSendMessage(input);
+    sendMessage(input);
     setInput('');
   };
 
   return (
     <div className="p-4 border-t border-gray-800 bg-gray-900/50">
       <VoiceRecognition 
-        onSpeechResult={onSpeechResult} 
+        onSpeechResult={handleSpeechResult} 
         isListening={isListening}
         toggleListening={toggleListening}
       />
