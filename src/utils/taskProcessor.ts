@@ -17,6 +17,7 @@ import { handleWeatherCommand } from './commands/weatherCommand';
 import { handleCalculation } from './commands/calculationCommand';
 import { handleCalendarCommand } from './commands/calendarCommand';
 import { handleLearningCommand } from './commands/learningCommand';
+import { handleSystemCommand } from './commands/systemCommand';
 
 // Process commands based on intent recognition
 export const processCommand = async (text: string): Promise<TaskResponse> => {
@@ -39,7 +40,8 @@ export const processCommand = async (text: string): Promise<TaskResponse> => {
     weather: /weather|temperature|forecast|rain|sunny/i,
     calculation: /calculate|compute|what is|how much is|math|sum of|add|subtract|multiply|divide/i,
     calendar: /calendar|schedule|event|appointment|meeting|add event|create event|plan/i,
-    learning: /remember|learn|forget|my name|i am|i like|i love|call me/i
+    learning: /remember|learn|forget|my name|i am|i like|i love|call me/i,
+    system: /system (info|status|specs)|device info|computer info|machine info|cpu|memory|ram|disk/i
   };
   
   // First check if it's a calendar event request
@@ -99,6 +101,9 @@ export const processCommand = async (text: string): Promise<TaskResponse> => {
         break;
       case 'learning':
         response = handleLearningCommand(lowerText);
+        break;
+      case 'system':
+        response = handleSystemCommand(lowerText);
         break;
       case 'calculation':
         // If we get here, the standard calculation handling failed
