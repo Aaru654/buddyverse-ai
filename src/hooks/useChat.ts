@@ -4,9 +4,9 @@ import { speak, stopSpeaking, initSpeechSynthesis } from '../utils/speechSynthes
 import { useToast } from "@/hooks/use-toast";
 import { learningSystem } from '@/utils/learningSystem';
 import { Message } from '../components/chat/MessageList';
-import { ChatState, ChatContextType } from '../types/chat';
+import type { ChatState, ChatContextType } from '../types/chat';
 
-export { ChatState };
+export type { ChatState };
 
 export const useChat = (onProcessingStateChange?: (state: boolean) => void): ChatContextType => {
   const [state, setState] = useState<ChatState>({
