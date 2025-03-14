@@ -14,25 +14,25 @@ export const MessageItem = ({ id, text, sender, timestamp, isTyping }: MessagePr
     <div
       className={`flex ${
         sender === 'user' ? 'justify-end' : 'justify-start'
-      }`}
+      } mb-1`}
     >
       <div
-        className={`max-w-[85%] p-3 rounded-lg ${
+        className={`max-w-[85%] p-2 rounded-lg text-sm ${
           sender === 'user'
-            ? 'bg-buddy-purple text-white'
-            : 'bg-gray-800 text-gray-200'
+            ? 'bg-buddy-purple/80 text-white'
+            : 'bg-gray-800/80 text-gray-200'
         }`}
       >
-        <p>{text}
+        <p className="text-sm">{text}
           {isTyping && (
-            <span className="inline-flex ml-2">
+            <span className="inline-flex ml-1">
               <span className="animate-pulse">.</span>
               <span className="animate-pulse" style={{ animationDelay: '0.2s' }}>.</span>
               <span className="animate-pulse" style={{ animationDelay: '0.4s' }}>.</span>
             </span>
           )}
         </p>
-        <span className="text-xs text-gray-400 mt-1 block">
+        <span className="text-xs text-gray-400 block">
           {timestamp.toLocaleTimeString([], { 
             hour: '2-digit', 
             minute: '2-digit' 

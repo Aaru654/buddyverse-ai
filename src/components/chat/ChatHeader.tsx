@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Calendar, BookText } from 'lucide-react';
+import { Calendar, BookText, ChevronDown } from 'lucide-react';
 import { useChatContext } from '@/contexts/ChatContext';
 
 export const ChatHeader = () => {
@@ -8,9 +8,13 @@ export const ChatHeader = () => {
   const { showCalendar, showNotes } = state;
   
   return (
-    <div className="p-2 bg-gray-900/70 border-b border-gray-800 flex justify-between items-center">
-      <h2 className="text-sm font-medium text-gray-300">Conversation</h2>
-      <div className="flex space-x-2">
+    <div className="p-3 bg-gray-900/90 border-b border-gray-800 flex justify-between items-center">
+      <div className="flex items-center">
+        <div className="h-3 w-3 rounded-full bg-buddy-neon mr-2 animate-pulse"></div>
+        <h2 className="text-xs font-medium text-gray-300">BUDDY CALL</h2>
+      </div>
+      
+      <div className="flex space-x-3">
         <button 
           onClick={toggleCalendarView}
           className={`p-1.5 rounded-md transition-colors ${
@@ -18,7 +22,7 @@ export const ChatHeader = () => {
           }`}
           title="Calendar"
         >
-          <Calendar className="w-4 h-4" />
+          <Calendar className="w-3.5 h-3.5" />
         </button>
         <button 
           onClick={toggleNotesView}
@@ -27,7 +31,10 @@ export const ChatHeader = () => {
           }`}
           title="Notes"
         >
-          <BookText className="w-4 h-4" />
+          <BookText className="w-3.5 h-3.5" />
+        </button>
+        <button className="text-gray-400 p-1.5 rounded-md hover:text-white hover:bg-gray-800">
+          <ChevronDown className="w-3.5 h-3.5" />
         </button>
       </div>
     </div>
