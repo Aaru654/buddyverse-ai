@@ -1,6 +1,7 @@
 
-// This file is just for reference, to be manually applied to package.json
-// These are the scripts that need to be added:
+// This file contains scripts and configuration to be manually added to package.json
+
+// These are the scripts that need to be added to package.json in the "scripts" section:
 /*
 "electron:dev": "concurrently \"cross-env ELECTRON_START_URL=http://localhost:8080 electron electron/main.js\" \"npm run dev\"",
 "electron:build": "npm run build && electron-builder",
@@ -32,3 +33,9 @@
   }
 }
 */
+
+console.log("To manually update package.json, add the scripts and configuration above to your package.json file.");
+console.log("After adding these scripts, you can run the application with:");
+console.log("npm run electron:start - To start the Electron app");
+console.log("npm run electron:dev - To start both Vite and Electron for development");
+console.log("npm run electron:build - To build the app for distribution");
