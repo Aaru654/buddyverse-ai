@@ -1,21 +1,14 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { processCommand } from '../utils/taskProcessor';
 import { speak, stopSpeaking, initSpeechSynthesis } from '../utils/speechSynthesis';
 import { useToast } from "@/hooks/use-toast";
 import { learningSystem } from '@/utils/learningSystem';
 import { Message } from '../components/chat/MessageList';
+import { ChatState, ChatContextType } from '../types/chat';
 
-export interface ChatState {
-  messages: Message[];
-  isProcessing: boolean;
-  isListening: boolean;
-  isSpeaking: boolean;
-  showCalendar: boolean;
-  showNotes: boolean;
-}
+export { ChatState };
 
-export const useChat = (onProcessingStateChange?: (state: boolean) => void) => {
+export const useChat = (onProcessingStateChange?: (state: boolean) => void): ChatContextType => {
   const [state, setState] = useState<ChatState>({
     messages: [{
       id: '1',
