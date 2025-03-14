@@ -19,7 +19,7 @@ import { handleCalendarCommand } from './commands/calendarCommand';
 import { handleLearningCommand } from './commands/learningCommand';
 
 // Process commands based on intent recognition
-export const processCommand = (text: string): TaskResponse => {
+export const processCommand = async (text: string): Promise<TaskResponse> => {
   const lowerText = text.toLowerCase().trim();
   
   // Log the interaction for learning
@@ -31,7 +31,7 @@ export const processCommand = (text: string): TaskResponse => {
   // Enhanced intent matching patterns
   const patterns: CommandPatterns = {
     app: /open|launch|start|run\s+(\w+)/i,
-    file: /file|folder|document|create|delete|rename/i,
+    file: /file|folder|document|create|delete|rename|list|show/i,
     search: /search|find|look for|google|search for/i,
     note: /note|write down|remember|save|take a note|remind me about/i,
     music: /play|pause|stop|music|song|volume|turn up|turn down/i,
@@ -71,45 +71,52 @@ export const processCommand = (text: string): TaskResponse => {
   
   // Process based on task type
   let response: TaskResponse;
-  switch (taskType) {
-    case 'app':
-      response = handleAppCommand(lowerText);
-      break;
-    case 'file':
-      response = handleFileCommand(lowerText);
-      break;
-    case 'note':
-      response = handleNoteCommand(lowerText);
-      break;
-    case 'music':
-      response = handleMusicCommand(lowerText);
-      break;
-    case 'search':
-      response = handleSearchCommand(lowerText);
-      break;
-    case 'timer':
-      response = handleTimerCommand(lowerText);
-      break;
-    case 'weather':
-      response = handleWeatherCommand(lowerText);
-      break;
-    case 'calendar':
-      response = handleCalendarCommand(lowerText);
-      break;
-    case 'learning':
-      response = handleLearningCommand(lowerText);
-      break;
-    case 'calculation':
-      // If we get here, the standard calculation handling failed
-      response = {
-        message: "I couldn't perform that calculation. Could you rephrase it?",
-        success: false
-      };
-      break;
-    case 'chat':
-    default:
-      response = handleChatCommand(lowerText);
-      break;
+  try {
+    switch (taskType) {
+      case 'app':
+        response = await handleAppCommand(lowerText);
+        break;
+      case 'file':
+        response = await handleFileCommand(lowerText);
+        break;
+      case 'note':
+        response = handleNoteCommand(lowerText);
+        break;
+      case 'music':
+        response = handleMusicCommand(lowerText);
+        break;
+      case 'search':
+        response = handleSearchCommand(lowerText);
+        break;
+      case 'timer':
+        response = handleTimerCommand(lowerText);
+        break;
+      case 'weather':
+        response = handleWeatherCommand(lowerText);
+        break;
+      case 'calendar':
+        response = handleCalendarCommand(lowerText);
+        break;
+      case 'learning':
+        response = handleLearningCommand(lowerText);
+        break;
+      case 'calculation':
+        // If we get here, the standard calculation handling failed
+        response = {
+          message: "I couldn't perform that calculation. Could you rephrase it?",
+          success: false
+        };
+        break;
+      case 'chat':
+      default:
+        response = handleChatCommand(lowerText);
+        break;
+    }
+  } catch (error) {
+    response = {
+      message: `I encountered an error: ${error.message || error}`,
+      success: false
+    };
   }
   
   return logInteractionAfterResponse(response);

@@ -101,7 +101,7 @@ export const useChat = (onProcessingStateChange?: (state: boolean) => void): Cha
     return assistantMessage.id;
   }, [addMessage, updateMessage]);
 
-  // Send message function
+  // Send message function - updated to handle async processCommand
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim()) return;
     
@@ -117,7 +117,7 @@ export const useChat = (onProcessingStateChange?: (state: boolean) => void): Cha
     addMessage(userMessage);
     
     try {
-      const response = processCommand(text);
+      const response = await processCommand(text);
       const messageId = await simulateTyping(response.message);
       
       updateState({ isProcessing: false });
@@ -131,6 +131,7 @@ export const useChat = (onProcessingStateChange?: (state: boolean) => void): Cha
         }
       );
     } catch (error) {
+      console.error("Error processing message:", error);
       toast({
         title: "Error",
         description: "Failed to process your request. Please try again.",
