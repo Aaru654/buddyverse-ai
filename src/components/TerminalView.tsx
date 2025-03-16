@@ -1,18 +1,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowUpCircle, Clipboard, Terminal, X } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useChatContext } from '@/contexts/ChatContext';
-
-interface CommandResult {
-  command: string;
-  output: string;
-  timestamp: string;
-  error?: boolean;
-}
+import { TerminalButton } from './terminal/TerminalButton';
+import { TerminalHeader } from './terminal/TerminalHeader';
+import { CommandHistory, CommandResult } from './terminal/CommandHistory';
+import { CommandInput } from './terminal/CommandInput';
+import { Separator } from '@/components/ui/separator';
 
 export const TerminalView = () => {
   const { state, sendMessage } = useChatContext();
@@ -155,7 +148,7 @@ export const TerminalView = () => {
     setCommandResults([]);
   };
 
-  const copyOutputToClipboard = async (text: string) => {
+  const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
     } catch (err) {
@@ -172,126 +165,33 @@ export const TerminalView = () => {
   };
 
   if (!isOpen) {
-    return (
-      <div className="fixed bottom-4 right-4 z-50">
-        <Button
-          onClick={() => setIsOpen(true)}
-          size="icon"
-          className="rounded-full bg-gray-800 hover:bg-gray-700 text-white shadow-lg"
-        >
-          <Terminal className="h-5 w-5" />
-        </Button>
-      </div>
-    );
+    return <TerminalButton onClick={() => setIsOpen(true)} />;
   }
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-6xl bg-gray-900 border border-gray-700 rounded-t-lg shadow-2xl">
-      <div className="p-2 flex items-center justify-between bg-gray-800 rounded-t-lg">
-        <div className="flex items-center">
-          <Terminal className="h-4 w-4 mr-2 text-gray-400" />
-          <span className="text-sm font-medium text-gray-200">Terminal</span>
-        </div>
-        <div className="flex space-x-1">
-          <Button 
-            size="icon" 
-            variant="ghost" 
-            className="h-8 w-8 text-gray-400 hover:text-white"
-            onClick={clearTerminal}
-          >
-            <span className="sr-only">Clear</span>
-            X
-          </Button>
-          <Button 
-            size="icon" 
-            variant="ghost" 
-            className="h-8 w-8 text-gray-400 hover:text-white"
-            onClick={() => setIsOpen(false)}
-          >
-            <span className="sr-only">Close</span>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+      <TerminalHeader 
+        onClose={() => setIsOpen(false)} 
+        onClear={clearTerminal} 
+      />
+      
+      <CommandHistory
+        commands={commandResults}
+        onCopyText={copyToClipboard}
+        resultsEndRef={resultsEndRef}
+      />
       
       <Separator className="bg-gray-700" />
       
-      <ScrollArea className="max-h-[420px] h-[50vh]">
-        <div className="p-4 font-mono text-sm text-gray-300 space-y-4">
-          {commandResults.length === 0 ? (
-            <div className="text-gray-500 italic">
-              Type a system command below to execute it directly on your device.
-            </div>
-          ) : (
-            commandResults.map((result, index) => (
-              <div key={index} className="space-y-2">
-                <div className="flex items-center">
-                  <span className="text-gray-500">{new Date(result.timestamp).toLocaleString()}</span>
-                  <span className="ml-2 text-buddy-neon">$</span>
-                  <span className="ml-2">{result.command}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 ml-auto text-gray-400 hover:text-white"
-                    onClick={() => copyOutputToClipboard(result.command)}
-                    aria-label="Copy command"
-                  >
-                    <Clipboard className="h-3 w-3" />
-                  </Button>
-                </div>
-                
-                {result.output && (
-                  <div className="pl-4 border-l-2 border-gray-700">
-                    <div className={`font-mono whitespace-pre-wrap ${result.error ? 'text-red-400' : 'text-gray-400'}`}>
-                      {result.output}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5 ml-auto mt-1 text-gray-400 hover:text-white self-start"
-                      onClick={() => copyOutputToClipboard(result.output)}
-                      aria-label="Copy output"
-                    >
-                      <Clipboard className="h-3 w-3" />
-                    </Button>
-                  </div>
-                )}
-                
-                {index < commandResults.length - 1 && (
-                  <Separator className="bg-gray-800 mt-4" />
-                )}
-              </div>
-            ))
-          )}
-          <div ref={resultsEndRef} />
-        </div>
-      </ScrollArea>
-      
-      <Separator className="bg-gray-700" />
-      
-      <div className="p-2 bg-gray-800">
-        <div className="flex items-center text-xs text-gray-500 pb-1">
-          <span>System: {window.electronAPI ? window.electronAPI.getPlatform() : 'Browser'}</span>
-          <span className="mx-2">•</span>
-          <span>Path: {commandResults.length > 0 ? 'Current directory' : '/'}</span>
-        </div>
-        
-        <div className="flex space-x-2">
-          <form onSubmit={handleSubmit} className="p-2 bg-gray-800 border-t border-gray-700 flex items-center w-full">
-            <div className="mr-2 text-gray-400">
-              <ArrowUpCircle className="h-4 w-4" aria-label="Use Up/Down arrows for history" />
-            </div>
-            <Input
-              value={command}
-              onChange={(e) => setCommand(e.target.value)}
-              onKeyDown={handleKeyDown}
-              ref={inputRef}
-              placeholder="Type command and press Enter..."
-              className="bg-gray-700 border-gray-600 text-gray-200 focus:ring-buddy-neon font-mono"
-            />
-          </form>
-        </div>
-      </div>
+      <CommandInput
+        command={command}
+        onChange={setCommand}
+        onKeyDown={handleKeyDown}
+        onSubmit={handleSubmit}
+        inputRef={inputRef}
+        platform={window.electronAPI ? window.electronAPI.getPlatform() : 'Browser'}
+        directory={commandResults.length > 0 ? 'Current directory' : '/'}
+      />
     </div>
   );
 };
