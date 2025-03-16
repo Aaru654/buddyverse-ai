@@ -6,6 +6,7 @@ import { TerminalHeader } from './terminal/TerminalHeader';
 import { CommandHistory, CommandResult } from './terminal/CommandHistory';
 import { CommandInput } from './terminal/CommandInput';
 import { Separator } from '@/components/ui/separator';
+import { StorageManager } from '@/utils/learning/storage';
 
 export const TerminalView = () => {
   const { state, sendMessage } = useChatContext();
@@ -16,6 +17,28 @@ export const TerminalView = () => {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsEndRef = useRef<HTMLDivElement>(null);
+  const storageManager = useRef(new StorageManager());
+
+  // Load command results from local storage
+  useEffect(() => {
+    if (isOpen) {
+      const savedResults = storageManager.current.getCommandHistory();
+      if (savedResults && savedResults.length > 0) {
+        setCommandResults(savedResults);
+      }
+
+      // Extract command strings for up/down navigation
+      const commandStrings = savedResults.map(result => result.command);
+      setCommandHistory(commandStrings);
+    }
+  }, [isOpen]);
+
+  // Save command results to local storage whenever they change
+  useEffect(() => {
+    if (commandResults.length > 0) {
+      storageManager.current.saveCommandHistory(commandResults);
+    }
+  }, [commandResults]);
 
   // Load command history from the Electron app if available
   useEffect(() => {
@@ -24,13 +47,28 @@ export const TerminalView = () => {
         try {
           const history = await window.electronAPI.getCommandHistory();
           if (history && history.length > 0) {
-            setCommandResults(
-              history.map(item => ({
-                command: item.command,
-                output: 'Previous command (output not stored)',
-                timestamp: item.timestamp
-              }))
+            // If we have history from Electron that's not in our local storage
+            const newResults = history.map(item => ({
+              command: item.command,
+              output: 'Previous command (output not stored)',
+              timestamp: item.timestamp
+            }));
+            
+            // Merge with existing results from local storage
+            // This ensures we don't lose the full output that's stored locally
+            const existingCommands = new Set(commandResults.map(r => r.command + r.timestamp));
+            const uniqueNewResults = newResults.filter(
+              r => !existingCommands.has(r.command + r.timestamp)
             );
+            
+            if (uniqueNewResults.length > 0) {
+              const mergedResults = [...commandResults, ...uniqueNewResults];
+              setCommandResults(mergedResults);
+              
+              // Extract command strings for up/down navigation
+              const commandStrings = mergedResults.map(result => result.command);
+              setCommandHistory(commandStrings);
+            }
           }
         } catch (error) {
           console.error('Failed to load command history:', error);
@@ -41,7 +79,7 @@ export const TerminalView = () => {
     if (isOpen) {
       loadCommandHistory();
     }
-  }, [isOpen]);
+  }, [isOpen, commandResults]);
 
   // Auto-scroll to bottom when new commands are added
   useEffect(() => {
@@ -69,7 +107,12 @@ export const TerminalView = () => {
       timestamp: new Date().toISOString()
     };
     
-    setCommandResults(prev => [...prev, newResult]);
+    const updatedResults = [...commandResults, newResult];
+    setCommandResults(updatedResults);
+    
+    // Save to local storage immediately
+    storageManager.current.saveCommandHistory(updatedResults);
+    
     setCommand('');
     setCommandHistory(prev => [cmd, ...prev.slice(0, 49)]);
     setHistoryIndex(-1);
@@ -80,7 +123,7 @@ export const TerminalView = () => {
         const result = await window.electronAPI.executeTerminalCommand(cmd);
         
         // Update with real result
-        setCommandResults(prev => prev.map(item => 
+        const finalResults = commandResults.map(item => 
           item.command === cmd && item.timestamp === newResult.timestamp 
             ? { 
                 ...item, 
@@ -88,10 +131,19 @@ export const TerminalView = () => {
                 error: !!result.stderr 
               } 
             : item
-        ));
+        );
+        setCommandResults([...finalResults, {
+          command: cmd,
+          output: result.stdout || result.stderr || 'Command executed successfully with no output',
+          error: !!result.stderr,
+          timestamp: new Date().toISOString()
+        }].filter((v, i, a) => a.indexOf(v) === i)); // Remove any duplicates
+        
+        // Save updated results with actual output
+        storageManager.current.saveCommandHistory(finalResults);
       } catch (error: any) {
         // Handle error case
-        setCommandResults(prev => prev.map(item => 
+        const finalResults = commandResults.map(item => 
           item.command === cmd && item.timestamp === newResult.timestamp 
             ? { 
                 ...item, 
@@ -99,11 +151,15 @@ export const TerminalView = () => {
                 error: true 
               } 
             : item
-        ));
+        );
+        setCommandResults(finalResults);
+        
+        // Save error results
+        storageManager.current.saveCommandHistory(finalResults);
       }
     } else {
       // If not in Electron, handle as chat command
-      setCommandResults(prev => prev.map(item => 
+      const finalResults = commandResults.map(item => 
         item.command === cmd && item.timestamp === newResult.timestamp 
           ? { 
               ...item, 
@@ -111,7 +167,11 @@ export const TerminalView = () => {
               error: true 
             } 
           : item
-      ));
+      );
+      setCommandResults(finalResults);
+      
+      // Save results
+      storageManager.current.saveCommandHistory(finalResults);
       
       // Also send as a chat message
       sendMessage(cmd);
@@ -146,6 +206,8 @@ export const TerminalView = () => {
 
   const clearTerminal = () => {
     setCommandResults([]);
+    // Also clear from local storage
+    storageManager.current.saveCommandHistory([]);
   };
 
   const copyToClipboard = async (text: string) => {
