@@ -1,8 +1,30 @@
+
 # Welcome to your Lovable project
 
 ## Project info
 
 **URL**: https://lovable.dev/projects/4179b624-3ddf-4b1a-92a4-9ec72d6b58c5
+
+## Running the Desktop Application
+
+To run the desktop version of Buddy AI:
+
+```bash
+# First install dependencies
+npm install
+
+# If you're getting "Missing script" errors:
+node electron/setup-scripts.js
+
+# Run in development mode
+npm run electron:dev
+
+# Build for distribution
+npm run electron:build
+
+# Run the production version
+npm run electron:start
+```
 
 ## How can I edit this code?
 
@@ -67,3 +89,4 @@ Simply open [Lovable](https://lovable.dev/projects/4179b624-3ddf-4b1a-92a4-9ec72
 ## I want to use a custom domain - is that possible?
 
 We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+
