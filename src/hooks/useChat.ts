@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { processCommand } from '../utils/taskProcessor';
 import { speak, stopSpeaking, initSpeechSynthesis } from '../utils/speechSynthesis';
@@ -93,7 +94,8 @@ export const useChat = (onProcessingStateChange?: (state: boolean) => void): Cha
     for (let i = 0; i < words.length; i++) {
       currentText += (i === 0 ? '' : ' ') + words[i];
       updateMessage(assistantMessage.id, { text: currentText });
-      await new Promise(resolve => setTimeout(resolve, 50));
+      // Reduced typing delay for better responsiveness
+      await new Promise(resolve => setTimeout(resolve, 30));
     }
     
     updateMessage(assistantMessage.id, { isTyping: false });

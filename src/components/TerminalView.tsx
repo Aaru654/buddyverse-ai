@@ -277,8 +277,7 @@ export const TerminalView = () => {
         </div>
         
         <div className="flex space-x-2">
-          
-          <form onSubmit={handleSubmit} className="p-2 bg-gray-800 border-t border-gray-700 flex items-center">
+          <form onSubmit={handleSubmit} className="p-2 bg-gray-800 border-t border-gray-700 flex items-center w-full">
             <div className="mr-2 text-gray-400">
               <ArrowUpCircle className="h-4 w-4" aria-label="Use Up/Down arrows for history" />
             </div>
