@@ -88,13 +88,12 @@ export const TerminalView = () => {
       if (window.electronAPI?.executeTerminalCommand) {
         const result = await window.electronAPI.executeTerminalCommand(command);
         
-        // Fixed - don't check for result.error which doesn't exist
         setResults(prev => prev.map(item => 
           item === newResult 
             ? { 
                 ...item, 
                 output: result.stdout || result.stderr || 'Command executed successfully with no output', 
-                error: !!result.stderr 
+                error: !!result.error 
               } 
             : item
         ));
@@ -266,8 +265,7 @@ export const TerminalView = () => {
           
           <form onSubmit={handleSubmit} className="p-2 bg-gray-800 border-t border-gray-700 flex items-center">
             <div className="mr-2 text-gray-400">
-              {/* Fixed: Removed the title prop which isn't supported by Lucide icons */}
-              <ArrowUpCircle className="h-4 w-4" aria-label="Use Up/Down arrows for history" />
+              <ArrowUpCircle className="h-4 w-4" title="Use Up/Down arrows for history" />
             </div>
             <Input
               value={command}

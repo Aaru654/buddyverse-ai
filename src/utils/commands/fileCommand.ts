@@ -1,7 +1,15 @@
 
 import { TaskResponse } from '../types/taskTypes';
 
-// Similarly, use the global Window.electronAPI interface from vite-env.d.ts
+declare global {
+  interface Window {
+    electronAPI?: {
+      executeTerminalCommand: (command: string) => Promise<{ stdout: string, stderr: string }>;
+      getPlatform: () => string;
+    }
+  }
+}
+
 export const handleFileCommand = async (text: string): Promise<TaskResponse> => {
   // Check if running in Electron
   const isElectron = !!window.electronAPI;
