@@ -1,15 +1,6 @@
 
 import { TaskResponse } from '../types/taskTypes';
 
-declare global {
-  interface Window {
-    electronAPI?: {
-      executeTerminalCommand: (command: string) => Promise<{ stdout: string, stderr: string }>;
-      getPlatform: () => string;
-    }
-  }
-}
-
 export const handleAppCommand = async (text: string): Promise<TaskResponse> => {
   // Check if running in Electron
   const isElectron = !!window.electronAPI;

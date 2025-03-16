@@ -93,7 +93,7 @@ export const TerminalView = () => {
             ? { 
                 ...item, 
                 output: result.stdout || result.stderr || 'Command executed successfully with no output', 
-                error: !!result.error 
+                error: !!result.stderr 
               } 
             : item
         ));
@@ -207,7 +207,7 @@ export const TerminalView = () => {
                     size="icon"
                     className="h-5 w-5 ml-auto text-gray-400 hover:text-white"
                     onClick={() => copyOutputToClipboard(result.command)}
-                    title="Copy command"
+                    aria-label="Copy command"
                   >
                     <Clipboard className="h-3 w-3" />
                   </Button>
@@ -222,7 +222,7 @@ export const TerminalView = () => {
                       size="icon"
                       className="h-5 w-5 ml-auto mt-1 text-gray-400 hover:text-white self-start"
                       onClick={() => copyOutputToClipboard(result.output)}
-                      title="Copy output"
+                      aria-label="Copy output"
                     >
                       <Clipboard className="h-3 w-3" />
                     </Button>
@@ -265,7 +265,7 @@ export const TerminalView = () => {
           
           <form onSubmit={handleSubmit} className="p-2 bg-gray-800 border-t border-gray-700 flex items-center">
             <div className="mr-2 text-gray-400">
-              <ArrowUpCircle className="h-4 w-4" title="Use Up/Down arrows for history" />
+              <ArrowUpCircle className="h-4 w-4" aria-label="Use Up/Down arrows for history" />
             </div>
             <Input
               value={command}
