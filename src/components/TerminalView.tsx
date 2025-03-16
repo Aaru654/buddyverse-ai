@@ -1,95 +1,94 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useChatContext } from '@/contexts/ChatContext';
-import { Terminal, X, CheckCircle2, AlertCircle, Clipboard, ArrowUpCircle } from 'lucide-react';
+import { ArrowUpCircle, Clipboard, Terminal, X } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
+import { useChatContext } from '@/contexts/ChatContext';
 
 interface CommandResult {
   command: string;
   output: string;
-  error: boolean;
-  timestamp: Date;
-}
-
-interface CommandHistoryItem {
-  command: string;
   timestamp: string;
+  error?: boolean;
 }
-
-const commonCommands = [
-  'ls', 'cd', 'mkdir', 'touch', 'rm', 'pwd', 'cat',
-  'ps', 'top', 'grep', 'find', 'echo', 'ping'
-];
 
 export const TerminalView = () => {
-  const { sendMessage } = useChatContext();
+  const { state, sendMessage } = useChatContext();
+  const [isOpen, setIsOpen] = useState(false);
   const [command, setCommand] = useState('');
-  const [results, setResults] = useState<CommandResult[]>([]);
-  const [isVisible, setIsVisible] = useState(false);
-  const [history, setHistory] = useState<CommandHistoryItem[]>([]);
+  const [commandResults, setCommandResults] = useState<CommandResult[]>([]);
+  const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  
-  const fetchCommandHistory = async () => {
-    if (window.electronAPI?.getCommandHistory) {
-      try {
-        const history = await window.electronAPI.getCommandHistory();
-        setHistory(history);
-      } catch (error) {
-        console.error("Failed to fetch command history:", error);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const resultsEndRef = useRef<HTMLDivElement>(null);
+
+  // Load command history from the Electron app if available
+  useEffect(() => {
+    const loadCommandHistory = async () => {
+      if (window.electronAPI) {
+        try {
+          const history = await window.electronAPI.getCommandHistory();
+          if (history && history.length > 0) {
+            setCommandResults(
+              history.map(item => ({
+                command: item.command,
+                output: 'Previous command (output not stored)',
+                timestamp: item.timestamp
+              }))
+            );
+          }
+        } catch (error) {
+          console.error('Failed to load command history:', error);
+        }
       }
-    }
-  };
-  
-  useEffect(() => {
-    fetchCommandHistory();
-  }, []);
-  
-  // Update suggestions as user types
-  useEffect(() => {
-    if (command.trim()) {
-      const filtered = commonCommands.filter(cmd => 
-        cmd.startsWith(command.split(' ')[0]) && cmd !== command.split(' ')[0]
-      );
-      setSuggestions(filtered.slice(0, 5));
-    } else {
-      setSuggestions([]);
-    }
-  }, [command]);
-  
-  // Scroll to bottom when results change
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [results]);
-  
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!command.trim()) return;
-    
-    // Add to local results immediately for responsiveness
-    const newResult: CommandResult = {
-      command,
-      output: 'Executing...',
-      error: false,
-      timestamp: new Date()
     };
     
-    setResults(prev => [...prev, newResult]);
+    if (isOpen) {
+      loadCommandHistory();
+    }
+  }, [isOpen]);
+
+  // Auto-scroll to bottom when new commands are added
+  useEffect(() => {
+    if (resultsEndRef.current) {
+      resultsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [commandResults]);
+
+  // Focus input when terminal is opened
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }
+  }, [isOpen]);
+
+  const executeCommand = async (cmd: string) => {
+    if (!cmd.trim()) return;
+    
+    // Add to UI immediately
+    const newResult: CommandResult = {
+      command: cmd,
+      output: 'Executing command...',
+      timestamp: new Date().toISOString()
+    };
+    
+    setCommandResults(prev => [...prev, newResult]);
     setCommand('');
+    setCommandHistory(prev => [cmd, ...prev.slice(0, 49)]);
     setHistoryIndex(-1);
     
-    try {
-      // Execute command if electronAPI is available
-      if (window.electronAPI?.executeTerminalCommand) {
-        const result = await window.electronAPI.executeTerminalCommand(command);
+    // Execute via Electron if available
+    if (window.electronAPI) {
+      try {
+        const result = await window.electronAPI.executeTerminalCommand(cmd);
         
-        setResults(prev => prev.map(item => 
-          item === newResult 
+        // Update with real result
+        setCommandResults(prev => prev.map(item => 
+          item.command === cmd && item.timestamp === newResult.timestamp 
             ? { 
                 ...item, 
                 output: result.stdout || result.stderr || 'Command executed successfully with no output', 
@@ -97,111 +96,139 @@ export const TerminalView = () => {
               } 
             : item
         ));
-        
-        // Refresh command history
-        fetchCommandHistory();
-      } else {
-        // Fallback for web mode
-        setResults(prev => prev.map(item => 
-          item === newResult 
+      } catch (error: any) {
+        // Handle error case
+        setCommandResults(prev => prev.map(item => 
+          item.command === cmd && item.timestamp === newResult.timestamp 
             ? { 
                 ...item, 
-                output: 'Terminal commands can only be executed in desktop mode.', 
+                output: error.message || error.toString() || 'Unknown error occurred', 
                 error: true 
               } 
             : item
         ));
       }
-    } catch (error) {
-      setResults(prev => prev.map(item => 
-        item === newResult 
+    } else {
+      // If not in Electron, handle as chat command
+      setCommandResults(prev => prev.map(item => 
+        item.command === cmd && item.timestamp === newResult.timestamp 
           ? { 
               ...item, 
-              output: error.message || 'An error occurred while executing the command.', 
+              output: 'This command requires the desktop app version with system access.', 
               error: true 
             } 
           : item
       ));
+      
+      // Also send as a chat message
+      sendMessage(cmd);
     }
   };
-  
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    // Handle up/down arrows for history navigation
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    executeCommand(command);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowUp') {
       e.preventDefault();
-      if (historyIndex < history.length - 1) {
-        const newIndex = historyIndex + 1;
+      if (commandHistory.length > 0) {
+        const newIndex = historyIndex < commandHistory.length - 1 ? historyIndex + 1 : historyIndex;
         setHistoryIndex(newIndex);
-        setCommand(history[newIndex].command);
+        setCommand(commandHistory[newIndex]);
       }
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       if (historyIndex > 0) {
         const newIndex = historyIndex - 1;
         setHistoryIndex(newIndex);
-        setCommand(history[newIndex].command);
+        setCommand(commandHistory[newIndex]);
       } else if (historyIndex === 0) {
         setHistoryIndex(-1);
         setCommand('');
       }
     }
   };
-  
-  const copyOutputToClipboard = (output: string) => {
-    if (window.electronAPI?.writeClipboard) {
-      window.electronAPI.writeClipboard(output)
-        .then(() => sendMessage("Copied terminal output to clipboard."));
-    } else {
-      navigator.clipboard.writeText(output)
-        .then(() => sendMessage("Copied terminal output to clipboard."))
-        .catch(err => console.error("Failed to copy:", err));
-    }
-  };
-  
-  const applySuggestion = (suggestion: string) => {
-    const commandWords = command.split(' ');
-    commandWords[0] = suggestion;
-    setCommand(commandWords.join(' '));
+
+  const clearTerminal = () => {
+    setCommandResults([]);
   };
 
-  return (
-    <div className="fixed bottom-4 right-4 z-30">
-      {!isVisible && (
-        <Button 
-          onClick={() => setIsVisible(true)}
-          className="rounded-full h-12 w-12 bg-gray-800 border border-gray-700 hover:bg-gray-700 hover:border-buddy-neon transition-colors shadow-lg"
+  const copyOutputToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (err) {
+      console.error('Failed to copy text:', err);
+      // Try alternative approach for Electron
+      if (window.electronAPI) {
+        try {
+          await window.electronAPI.writeClipboard(text);
+        } catch (electronErr) {
+          console.error('Failed to copy via Electron:', electronErr);
+        }
+      }
+    }
+  };
+
+  if (!isOpen) {
+    return (
+      <div className="fixed bottom-4 right-4 z-50">
+        <Button
+          onClick={() => setIsOpen(true)}
+          size="icon"
+          className="rounded-full bg-gray-800 hover:bg-gray-700 text-white shadow-lg"
         >
-          <Terminal className="h-5 w-5 text-buddy-neon" />
+          <Terminal className="h-5 w-5" />
         </Button>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-6xl bg-gray-900 border border-gray-700 rounded-t-lg shadow-2xl">
+      <div className="p-2 flex items-center justify-between bg-gray-800 rounded-t-lg">
+        <div className="flex items-center">
+          <Terminal className="h-4 w-4 mr-2 text-gray-400" />
+          <span className="text-sm font-medium text-gray-200">Terminal</span>
+        </div>
+        <div className="flex space-x-1">
+          <Button 
+            size="icon" 
+            variant="ghost" 
+            className="h-8 w-8 text-gray-400 hover:text-white"
+            onClick={clearTerminal}
+          >
+            <span className="sr-only">Clear</span>
+            X
+          </Button>
+          <Button 
+            size="icon" 
+            variant="ghost" 
+            className="h-8 w-8 text-gray-400 hover:text-white"
+            onClick={() => setIsOpen(false)}
+          >
+            <span className="sr-only">Close</span>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
       
-      {isVisible && (
-        <div className="bg-gray-900 border border-gray-700 rounded-lg shadow-xl w-[600px] max-w-full h-[500px] flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between p-2 bg-gray-800 border-b border-gray-700">
-            <div className="flex items-center space-x-2">
-              <Terminal className="h-4 w-4 text-buddy-neon" />
-              <span className="text-sm font-medium text-gray-300">Terminal</span>
+      <Separator className="bg-gray-700" />
+      
+      <ScrollArea className="max-h-[420px] h-[50vh]">
+        <div className="p-4 font-mono text-sm text-gray-300 space-y-4">
+          {commandResults.length === 0 ? (
+            <div className="text-gray-500 italic">
+              Type a system command below to execute it directly on your device.
             </div>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => setIsVisible(false)}
-              className="h-6 w-6 rounded-full hover:bg-gray-700"
-            >
-              <X className="h-4 w-4 text-gray-400" />
-            </Button>
-          </div>
-          
-          <ScrollArea className="flex-1 p-3 bg-black/50 font-mono text-xs">
-            {results.map((result, index) => (
-              <div key={index} className="mb-4">
-                <div className="flex items-center mb-1">
-                  <span className="text-green-400">$ </span>
-                  <span className="text-gray-200 ml-1">{result.command}</span>
-                  <span className="text-gray-500 text-xs ml-2">
-                    {result.timestamp.toLocaleTimeString()}
-                  </span>
-                  
+          ) : (
+            commandResults.map((result, index) => (
+              <div key={index} className="space-y-2">
+                <div className="flex items-center">
+                  <span className="text-gray-500">{new Date(result.timestamp).toLocaleString()}</span>
+                  <span className="ml-2 text-buddy-neon">$</span>
+                  <span className="ml-2">{result.command}</span>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -213,10 +240,11 @@ export const TerminalView = () => {
                   </Button>
                 </div>
                 
-                <div className={`pl-4 border-l-2 ${result.error ? 'border-red-500 text-red-300' : 'border-gray-600 text-gray-300'}`}>
-                  <div className="flex">
-                    <pre className="whitespace-pre-wrap break-all">{result.output}</pre>
-                    
+                {result.output && (
+                  <div className="pl-4 border-l-2 border-gray-700">
+                    <div className={`font-mono whitespace-pre-wrap ${result.error ? 'text-red-400' : 'text-gray-400'}`}>
+                      {result.output}
+                    </div>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -227,41 +255,28 @@ export const TerminalView = () => {
                       <Clipboard className="h-3 w-3" />
                     </Button>
                   </div>
-                  
-                  {result.error ? (
-                    <div className="flex items-center text-red-400 mt-1 text-xs">
-                      <AlertCircle className="h-3 w-3 mr-1" />
-                      <span>Command failed</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center text-green-400 mt-1 text-xs">
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                      <span>Command completed</span>
-                    </div>
-                  )}
-                </div>
+                )}
+                
+                {index < commandResults.length - 1 && (
+                  <Separator className="bg-gray-800 mt-4" />
+                )}
               </div>
-            ))}
-            <div ref={bottomRef} />
-          </ScrollArea>
-          
-          {suggestions.length > 0 && (
-            <div className="bg-gray-800 border-t border-gray-700 px-2 py-1">
-              <div className="flex flex-wrap gap-1">
-                {suggestions.map((suggestion, index) => (
-                  <Button
-                    key={index}
-                    variant="outline"
-                    size="sm"
-                    className="h-6 text-xs bg-gray-700 hover:bg-gray-600 border-gray-600"
-                    onClick={() => applySuggestion(suggestion)}
-                  >
-                    {suggestion}
-                  </Button>
-                ))}
-              </div>
-            </div>
+            ))
           )}
+          <div ref={resultsEndRef} />
+        </div>
+      </ScrollArea>
+      
+      <Separator className="bg-gray-700" />
+      
+      <div className="p-2 bg-gray-800">
+        <div className="flex items-center text-xs text-gray-500 pb-1">
+          <span>System: {window.electronAPI ? window.electronAPI.getPlatform() : 'Browser'}</span>
+          <span className="mx-2">•</span>
+          <span>Path: {commandResults.length > 0 ? 'Current directory' : '/'}</span>
+        </div>
+        
+        <div className="flex space-x-2">
           
           <form onSubmit={handleSubmit} className="p-2 bg-gray-800 border-t border-gray-700 flex items-center">
             <div className="mr-2 text-gray-400">
@@ -271,18 +286,13 @@ export const TerminalView = () => {
               value={command}
               onChange={(e) => setCommand(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Enter a command..."
-              className="flex-1 bg-gray-700 border-gray-600 text-sm text-gray-200 focus-visible:ring-buddy-neon/30"
+              ref={inputRef}
+              placeholder="Type command and press Enter..."
+              className="bg-gray-700 border-gray-600 text-gray-200 focus:ring-buddy-neon font-mono"
             />
-            <Button 
-              type="submit" 
-              className="ml-2 bg-buddy-neon hover:bg-buddy-neon/80 text-black"
-            >
-              Run
-            </Button>
           </form>
         </div>
-      )}
+      </div>
     </div>
   );
 };
