@@ -7,7 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { TerminalView } from "./components/TerminalView";
-import React, { ErrorBoundary } from "react";
+import React from "react";
 
 // Simple error boundary to catch and display errors
 class AppErrorBoundary extends React.Component<
