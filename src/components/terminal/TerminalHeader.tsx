@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Terminal, X, Search } from 'lucide-react';
+import { Terminal, X, Search, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 
@@ -41,7 +41,7 @@ export const TerminalHeader: React.FC<TerminalHeaderProps> = ({
             onClick={onClear}
           >
             <span className="sr-only">Clear</span>
-            X
+            <Trash2 className="h-4 w-4" />
           </Button>
           <Button 
             size="icon" 

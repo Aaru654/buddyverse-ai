@@ -1,7 +1,8 @@
 
 import React from 'react';
-import { ArrowUpCircle } from 'lucide-react';
+import { ArrowUpCircle, Send } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 interface CommandInputProps {
   command: string;
@@ -30,9 +31,9 @@ export const CommandInput: React.FC<CommandInputProps> = ({
         <span>Path: {directory}</span>
       </div>
       
-      <div className="flex space-x-2">
-        <form onSubmit={onSubmit} className="p-2 bg-gray-800 border-t border-gray-700 flex items-center w-full">
-          <div className="mr-2 text-gray-400">
+      <form onSubmit={onSubmit} className="flex space-x-2">
+        <div className="relative flex-1">
+          <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
             <ArrowUpCircle className="h-4 w-4" aria-label="Use Up/Down arrows for history" />
           </div>
           <Input
@@ -41,10 +42,18 @@ export const CommandInput: React.FC<CommandInputProps> = ({
             onKeyDown={onKeyDown}
             ref={inputRef}
             placeholder="Type command and press Enter..."
-            className="bg-gray-700 border-gray-600 text-gray-200 focus:ring-buddy-neon font-mono"
+            className="pl-10 pr-3 py-2 bg-gray-700 border-gray-600 text-gray-200 focus:ring-buddy-neon focus:border-buddy-neon font-mono"
           />
-        </form>
-      </div>
+        </div>
+        <Button 
+          type="submit" 
+          size="icon" 
+          className="bg-buddy-neon hover:bg-buddy-neon/90 text-black"
+          disabled={!command.trim()}
+        >
+          <Send className="h-4 w-4" />
+        </Button>
+      </form>
     </div>
   );
 };

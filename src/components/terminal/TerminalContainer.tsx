@@ -41,6 +41,7 @@ export const TerminalContainer: React.FC<TerminalContainerProps> = ({
   const [searchActive, setSearchActive] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredResults, setFilteredResults] = useState<CommandResult[]>(commandResults);
+  const [showCommandInput, setShowCommandInput] = useState(true);
 
   // Filter results when search term changes
   useEffect(() => {
@@ -54,6 +55,14 @@ export const TerminalContainer: React.FC<TerminalContainerProps> = ({
       setFilteredResults(commandResults);
     }
   }, [searchTerm, commandResults]);
+
+  // When search is active, hide command input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowCommandInput(!searchActive);
+    }, 150); // Small delay for smooth transition
+    return () => clearTimeout(timer);
+  }, [searchActive]);
 
   const handleCopyText = async (text: string) => {
     const success = await copyToClipboard(text);
@@ -91,18 +100,31 @@ export const TerminalContainer: React.FC<TerminalContainerProps> = ({
         setHistoryIndex(-1);
         setCommand('');
       }
+    } else if (e.key === 'Escape') {
+      if (searchActive) {
+        setSearchTerm('');
+        setSearchActive(false);
+      }
     }
   };
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    executeCommand(command);
+    if (command.trim()) {
+      executeCommand(command);
+    }
   };
 
   const toggleSearch = () => {
     setSearchActive(!searchActive);
     if (searchActive) {
       setSearchTerm('');
+      // Focus back on the command input when search is closed
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      }, 100);
     }
   };
 
@@ -123,23 +145,27 @@ export const TerminalContainer: React.FC<TerminalContainerProps> = ({
         />
       )}
       
-      <CommandHistory
-        commands={filteredResults}
-        onCopyText={handleCopyText}
-        resultsEndRef={resultsEndRef}
-      />
+      <div className="max-h-[40vh] overflow-y-auto bg-gray-900 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
+        <CommandHistory
+          commands={filteredResults}
+          onCopyText={handleCopyText}
+          resultsEndRef={resultsEndRef}
+        />
+      </div>
       
       <Separator className="bg-gray-700" />
       
-      <CommandInput
-        command={command}
-        onChange={setCommand}
-        onKeyDown={handleKeyDown}
-        onSubmit={handleSubmit}
-        inputRef={inputRef}
-        platform={window.electronAPI ? window.electronAPI.getPlatform() : 'Browser'}
-        directory={commandResults.length > 0 ? 'Current directory' : '/'}
-      />
+      <div className={`transition-opacity duration-200 ${showCommandInput ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
+        <CommandInput
+          command={command}
+          onChange={setCommand}
+          onKeyDown={handleKeyDown}
+          onSubmit={handleSubmit}
+          inputRef={inputRef}
+          platform={window.electronAPI ? window.electronAPI.getPlatform() : 'Browser'}
+          directory={commandResults.length > 0 ? 'Current directory' : '/'}
+        />
+      </div>
     </div>
   );
 };
