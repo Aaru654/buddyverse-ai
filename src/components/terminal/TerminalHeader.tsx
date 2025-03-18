@@ -1,15 +1,22 @@
 
 import React from 'react';
-import { Terminal, X } from 'lucide-react';
+import { Terminal, X, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 
 interface TerminalHeaderProps {
   onClose: () => void;
   onClear: () => void;
+  onToggleSearch: () => void;
+  isSearchActive: boolean;
 }
 
-export const TerminalHeader: React.FC<TerminalHeaderProps> = ({ onClose, onClear }) => {
+export const TerminalHeader: React.FC<TerminalHeaderProps> = ({ 
+  onClose, 
+  onClear, 
+  onToggleSearch,
+  isSearchActive 
+}) => {
   return (
     <>
       <div className="p-2 flex items-center justify-between bg-gray-800 rounded-t-lg">
@@ -18,6 +25,15 @@ export const TerminalHeader: React.FC<TerminalHeaderProps> = ({ onClose, onClear
           <span className="text-sm font-medium text-gray-200">Terminal</span>
         </div>
         <div className="flex space-x-1">
+          <Button 
+            size="icon" 
+            variant="ghost" 
+            className={`h-8 w-8 ${isSearchActive ? 'text-buddy-neon' : 'text-gray-400'} hover:text-white`}
+            onClick={onToggleSearch}
+          >
+            <span className="sr-only">Search</span>
+            <Search className="h-4 w-4" />
+          </Button>
           <Button 
             size="icon" 
             variant="ghost" 

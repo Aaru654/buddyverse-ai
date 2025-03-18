@@ -1,8 +1,9 @@
 
-import React from 'react';
-import { CommandHistory } from './CommandHistory';
+import React, { useState, useEffect } from 'react';
+import { CommandHistory, CommandResult } from './CommandHistory';
 import { CommandInput } from './CommandInput';
 import { TerminalHeader } from './TerminalHeader';
+import { SearchBar } from './SearchBar';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { copyToClipboard } from '@/utils/terminal/clipboardHelper';
@@ -12,7 +13,7 @@ interface TerminalContainerProps {
   onClose: () => void;
   command: string;
   setCommand: (value: string) => void;
-  commandResults: any[];
+  commandResults: CommandResult[];
   commandHistory: string[];
   historyIndex: number;
   setHistoryIndex: (index: number) => void;
@@ -37,6 +38,22 @@ export const TerminalContainer: React.FC<TerminalContainerProps> = ({
   clearTerminal
 }) => {
   const { toast } = useToast();
+  const [searchActive, setSearchActive] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredResults, setFilteredResults] = useState<CommandResult[]>(commandResults);
+
+  // Filter results when search term changes
+  useEffect(() => {
+    if (searchTerm) {
+      const filtered = commandResults.filter(result => 
+        result.command.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        result.output.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredResults(filtered);
+    } else {
+      setFilteredResults(commandResults);
+    }
+  }, [searchTerm, commandResults]);
 
   const handleCopyText = async (text: string) => {
     const success = await copyToClipboard(text);
@@ -82,15 +99,32 @@ export const TerminalContainer: React.FC<TerminalContainerProps> = ({
     executeCommand(command);
   };
 
+  const toggleSearch = () => {
+    setSearchActive(!searchActive);
+    if (searchActive) {
+      setSearchTerm('');
+    }
+  };
+
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-6xl bg-gray-900 border border-gray-700 rounded-t-lg shadow-2xl">
       <TerminalHeader 
         onClose={onClose} 
-        onClear={clearTerminal} 
+        onClear={clearTerminal}
+        onToggleSearch={toggleSearch}
+        isSearchActive={searchActive}
       />
       
+      {searchActive && (
+        <SearchBar 
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          resultCount={filteredResults.length}
+        />
+      )}
+      
       <CommandHistory
-        commands={commandResults}
+        commands={filteredResults}
         onCopyText={handleCopyText}
         resultsEndRef={resultsEndRef}
       />

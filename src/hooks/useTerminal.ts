@@ -12,7 +12,7 @@ export function useTerminal() {
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsEndRef = useRef<HTMLDivElement>(null);
   const storageManager = useRef(new StorageManager());
-
+  
   // Load command results from local storage
   useEffect(() => {
     if (isOpen) {
