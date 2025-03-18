@@ -1,9 +1,10 @@
-
 import { TaskResponse } from '../types/taskTypes';
 
 export const handleFileCommand = async (text: string): Promise<TaskResponse> => {
-  // Check if running in Electron
-  const isElectron = !!window.electronAPI;
+  // Check if running in Electron - more robust checking
+  const isElectron = typeof window !== 'undefined' && 
+                    window.electronAPI !== undefined && 
+                    window.electronAPI !== null;
   
   if (!isElectron) {
     return {

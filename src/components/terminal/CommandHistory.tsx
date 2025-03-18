@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { highlightOutput } from '@/utils/terminal/syntaxHighlighter';
+import { useToast } from '@/hooks/use-toast';
 
 export interface CommandResult {
   command: string;
@@ -24,6 +25,17 @@ export const CommandHistory: React.FC<CommandHistoryProps> = ({
   onCopyText,
   resultsEndRef
 }) => {
+  const { toast } = useToast();
+
+  const handleCopy = (text: string) => {
+    onCopyText(text);
+    toast({
+      title: "Copied to clipboard",
+      description: "Text has been copied to your clipboard",
+      duration: 2000,
+    });
+  };
+
   return (
     <ScrollArea className="max-h-[420px] h-[50vh]">
       <div className="p-4 font-mono text-sm text-gray-300 space-y-4">
@@ -48,7 +60,7 @@ export const CommandHistory: React.FC<CommandHistoryProps> = ({
                     variant="ghost"
                     size="icon"
                     className="h-5 w-5 ml-auto text-gray-400 hover:text-white"
-                    onClick={() => onCopyText(result.command)}
+                    onClick={() => handleCopy(result.command)}
                     aria-label="Copy command"
                   >
                     <Clipboard className="h-3 w-3" />
@@ -56,19 +68,21 @@ export const CommandHistory: React.FC<CommandHistoryProps> = ({
                 </div>
                 
                 {result.output && (
-                  <div className="pl-4 border-l-2 border-gray-700">
+                  <div className="pl-4 border-l-2 border-gray-700 relative">
                     <div className={`whitespace-pre-wrap ${result.error ? 'text-red-400' : cssClasses}`}>
                       {formattedOutput}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5 ml-auto mt-1 text-gray-400 hover:text-white self-start"
-                      onClick={() => onCopyText(result.output)}
-                      aria-label="Copy output"
-                    >
-                      <Clipboard className="h-3 w-3" />
-                    </Button>
+                    <div className="absolute top-0 right-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 text-gray-400 hover:text-white"
+                        onClick={() => handleCopy(result.output)}
+                        aria-label="Copy output"
+                      >
+                        <Clipboard className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                 )}
                 
